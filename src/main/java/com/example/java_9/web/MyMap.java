@@ -1,5 +1,8 @@
 package com.example.java_9.web;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.awt.image.BufferedImage;
 import java.util.HashMap;
 import java.util.Map;
@@ -30,5 +33,12 @@ public class MyMap {
 
     public Set<String> getIdArray(){
         return images.keySet();
+    }
+
+    public void removeImage(String key) { images.remove(key); }
+
+    public String toJson() throws JsonProcessingException {
+        ObjectMapper obj = new ObjectMapper();
+        return obj.writeValueAsString(images.keySet());
     }
 }

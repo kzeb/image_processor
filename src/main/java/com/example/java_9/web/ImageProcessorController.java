@@ -1,5 +1,7 @@
 package com.example.java_9.web;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+
 import javax.imageio.ImageIO;
 import javax.servlet.ServletInputStream;
 import java.awt.image.BufferedImage;
@@ -23,13 +25,24 @@ public class ImageProcessorController {
         BufferedImage imageNew = ImageIO.read(stream);
         String uuid = UUID.randomUUID().toString();
         imagesMap.setImage(uuid, imageNew);
-        return uuid;
+        return "{ \"key\": \"" + uuid + "\", \"height\": \"" + imageNew.getHeight() + "\", \"width\": \"" + imageNew.getWidth() + "\" }";
     }
 
-    public byte[] getImageFromMap(int number) throws IOException {
-        List<String> ids = new ArrayList<>(imagesMap.getIdArray());
-        BufferedImage temp = imagesMap.getImage(ids.get(number));
-        return convertToByteArray(temp);
+    public void deleteImageFromMap(String id) throws ImageNotFoundException {
+        if(imagesMap.getImage(id) == null){
+            throw new ImageNotFoundException();
+        } else {
+            imagesMap.removeImage(id);
+        }
+    }
+
+    public byte[] getImageFromMap(String id) throws IOException {
+        BufferedImage temp = imagesMap.getImage(id);
+        if(temp == null){
+            throw new ImageNotFoundException();
+        } else {
+            return convertToByteArray(temp);
+        }
     }
 
     public byte[] convertToByteArray(BufferedImage image) throws IOException {
@@ -38,10 +51,17 @@ public class ImageProcessorController {
         return bos.toByteArray();
     }
 
-//    public BufferedImage convert(byte[] byteImage){
-//        InputStream in = new ByteArrayInputStream(byteImage);
-//        BufferedImage bImageFromConvert = ImageIO.read(in);
-//        return bImageFromConvert;
-//    }
+    public String getImageSizeJson(String id){
+        BufferedImage temp = imagesMap.getImage(id);
+        if(temp == null){
+            throw new ImageNotFoundException();
+        } else {
+            return "{ \"key\": \"" + id + "\", \"height\": \"" + temp.getHeight() + "\", \"width\": \"" + temp.getWidth() + "\" }";
+        }
+    }
+
+    public String getUploadedFiles() throws JsonProcessingException {
+        return imagesMap.toJson();
+    }
 }
 
