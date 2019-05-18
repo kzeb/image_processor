@@ -2,7 +2,6 @@ package com.example.java_9.web;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
 import java.awt.image.BufferedImage;
 import java.util.HashMap;
 import java.util.Map;
