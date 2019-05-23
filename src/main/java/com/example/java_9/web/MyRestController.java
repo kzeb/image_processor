@@ -51,13 +51,13 @@ public class MyRestController {
         return imageProcessorController.getCroppedImageFromMap(id, start, stop, width, height);
     }
 
-//    @RequestMapping(value = "/image/{id}/blur/{radius}", method = RequestMethod.GET, produces = MediaType.IMAGE_PNG_VALUE)
-//    public Mat getBlurredImage(@PathVariable(value = "id") String id, @PathVariable(value = "radius") float radius) throws Exception {
-//        return imageProcessorController.getBlurredImageFromMap(id, radius);
-//    }
+    @RequestMapping(value = "/image/{id}/histogram", method = RequestMethod.GET)
+    public String getImageHstogram(@PathVariable(value = "id") String id) throws Exception {
+        return imageProcessorController.getImageHistogramFromMap(id);
+    }
 
-//    @RequestMapping(value = "/image/{id}/histogram", method = RequestMethod.GET)
-//    public String getImageHstogram(@PathVariable(value = "id") String id) throws Exception {
-//        return imageProcessorController.getImageHistogramFromMap(id);
-//    }
+    @RequestMapping(value = "/image/{id}/blur/{radius}", method = RequestMethod.GET, produces = MediaType.IMAGE_PNG_VALUE)
+    public byte[] getBlurredImage(@PathVariable(value = "id") String id, @PathVariable(value = "radius") int radius) throws Exception {
+        return imageProcessorController.getBlurredImageFromMap(id, radius);
+    }
 }

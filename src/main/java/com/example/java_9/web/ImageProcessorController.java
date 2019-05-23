@@ -1,13 +1,17 @@
 package com.example.java_9.web;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import javax.imageio.ImageIO;
 import javax.servlet.ServletInputStream;
 import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.awt.image.ConvolveOp;
+import java.awt.image.Kernel;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.util.UUID;
+import java.util.*;
+import java.util.List;
 
 public class ImageProcessorController {
 
@@ -83,6 +87,9 @@ public class ImageProcessorController {
     }
 
     public byte[] getScaledImageFromMap(String id, float percent) throws IOException {
+        if(percent<0){
+            throw new ScaleException();
+        }
         BufferedImage originalImage = imagesMap.getImage(id);
         if(originalImage == null){
             throw new ImageNotFoundException();
@@ -100,6 +107,9 @@ public class ImageProcessorController {
     }
 
     public byte[] getCroppedImageFromMap(String id, int start, int stop, int width, int height) throws IOException {
+        if(start<0||stop<0||width<0||height<0){
+            throw new ScaleException();
+        }
         BufferedImage originalImage = imagesMap.getImage(id);
         if(originalImage == null){
             throw new ImageNotFoundException();
@@ -107,5 +117,175 @@ public class ImageProcessorController {
             return convertToByteArray(originalImage.getSubimage(start, stop, width, height));
         }
     }
+
+    public byte[] getBlurredImageFromMap(String id, int radiuss) throws Exception {
+        if(radiuss<0){
+            throw new ScaleException();
+        }
+        BufferedImage image = imagesMap.getImage(id);
+
+        if(image == null){
+            throw new ImageNotFoundException();
+        } else {
+            int radius = radiuss;
+            int size = radius * 2 + 1;
+            float weight = 1.0f / (size * size);
+            float[] data = new float[size * size];
+
+            for (int i = 0; i < data.length; i++) {
+                data[i] = weight;
+            }
+            Kernel kernel = new Kernel(size, size, data);
+            int kernelWidth = size;
+            int kernelHeight = size;
+
+            int xOffset = (kernelWidth - 1) / 2;
+            int yOffset = (kernelHeight - 1) / 2;
+
+            BufferedImage newSource = new BufferedImage(
+                    image.getWidth() + kernelWidth - 1,
+                    image.getHeight() + kernelHeight - 1,
+                    image.getType());
+            Graphics2D g2 = newSource.createGraphics();
+            g2.drawImage(image, xOffset, yOffset, null);
+            g2.dispose();
+            ConvolveOp op = new ConvolveOp(kernel, ConvolveOp.EDGE_NO_OP, null);
+            BufferedImage i = op.filter(newSource, null);
+            return convertToByteArray(i);
+        }
+    }
+
+    public String getImageHistogramFromMap(String id) throws IOException {
+        BufferedImage image = imagesMap.getImage(id);
+        if(image == null){
+            throw new ImageNotFoundException();
+        } else {
+            ObjectMapper obj = new ObjectMapper();
+            return obj.writeValueAsString(histogramEqualizationLUT(image));
+        }
+    }
+
+    public static ArrayList<int[]> imageHistogram(BufferedImage input) {
+        int[] rhistogram = new int[256];
+        int[] ghistogram = new int[256];
+        int[] bhistogram = new int[256];
+
+        for(int i=0; i<rhistogram.length; i++) rhistogram[i] = 0;
+        for(int i=0; i<ghistogram.length; i++) ghistogram[i] = 0;
+        for(int i=0; i<bhistogram.length; i++) bhistogram[i] = 0;
+
+        for(int i=0; i<input.getWidth(); i++) {
+            for(int j=0; j<input.getHeight(); j++) {
+                int red = new Color(input.getRGB (i, j)).getRed();
+                int green = new Color(input.getRGB (i, j)).getGreen();
+                int blue = new Color(input.getRGB (i, j)).getBlue();
+
+                rhistogram[red]++; ghistogram[green]++; bhistogram[blue]++;
+            }
+        }
+
+        ArrayList<int[]> hist = new ArrayList<int[]>();
+        hist.add(rhistogram);
+        hist.add(ghistogram);
+        hist.add(bhistogram);
+
+        return hist;
+    }
+
+    private static Histogram histogramEqualizationLUT(BufferedImage input) {
+        ArrayList<int[]> imageHist = imageHistogram(input);
+        ArrayList<int[]> imageLUT = new ArrayList<int[]>();
+
+        int[] rhistogram = new int[256];
+        int[] ghistogram = new int[256];
+        int[] bhistogram = new int[256];
+
+        for(int i=0; i<rhistogram.length; i++) rhistogram[i] = 0;
+        for(int i=0; i<ghistogram.length; i++) ghistogram[i] = 0;
+        for(int i=0; i<bhistogram.length; i++) bhistogram[i] = 0;
+
+        long sumr = 0;
+        long sumg = 0;
+        long sumb = 0;
+
+        float scale_factor = (float) (255.0 / (input.getWidth() * input.getHeight()));
+
+        for(int i=0; i<rhistogram.length; i++) {
+            sumr += imageHist.get(0)[i];
+            int valr = (int) (sumr * scale_factor);
+            if(valr > 255) {
+                rhistogram[i] = 255;
+            }
+            else rhistogram[i] = valr;
+
+            sumg += imageHist.get(1)[i];
+            int valg = (int) (sumg * scale_factor);
+            if(valg > 255) {
+                ghistogram[i] = 255;
+            }
+            else ghistogram[i] = valg;
+
+            sumb += imageHist.get(2)[i];
+            int valb = (int) (sumb * scale_factor);
+            if(valb > 255) {
+                bhistogram[i] = 255;
+            }
+            else bhistogram[i] = valb;
+        }
+
+
+        Histogram hist = new Histogram();
+
+
+        normalize(rhistogram, hist.getRhist());
+        normalize(ghistogram, hist.getGhist());
+        normalize(bhistogram, hist.getBhist());
+
+
+        imageLUT.add(rhistogram);
+        imageLUT.add(ghistogram);
+        imageLUT.add(bhistogram);
+
+        return hist;
+    }
+
+    public static void normalize(int[] rhistogram,  Map<String, String> rhist){
+        int js = 0;
+        int ks = 0;
+        int maxs = 0;
+        for (int is = 0; is<rhistogram.length; is++){
+            if(rhistogram[is] == js){
+                ks++;
+            }else{
+                if(ks>maxs){
+                    maxs = ks;
+                }
+                ks=0;
+                is--;
+                js++;
+            }
+        }
+
+
+        int j = 0;
+        double k = 0;
+//        int max = 0;
+        for (int i = 0; i<rhistogram.length; i++){
+            if(rhistogram[i] == j){
+                k++;
+            }else{
+                if(k>0) {
+                    rhist.put(Integer.toString(j), Double.toString(k/maxs));
+                }
+//                if(k>max){
+//                    max = k;
+//                }
+                k=0;
+                i--;
+                j++;
+            }
+        }
+    }
 }
+
 
